@@ -1,0 +1,8 @@
+config.json
+seen_pks.json
+runs/
+.venv/
+models/
+ig_session.json
+__pycache__/
+*.pyc
