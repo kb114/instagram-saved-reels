@@ -1,7 +1,7 @@
 ---
 name: instagram-saved-reels
 description: "Research saved Instagram Reels into verified agent upgrades."
-version: 1.0.0
+version: 1.0.1
 author: Omar Abdelaziz
 license: MIT
 platforms: [linux, macos, windows]
@@ -91,21 +91,37 @@ python scripts/analyze_collection.py runs/<timestamp>/collection_manifest.json -
 python scripts/reel_frames.py "<public-url-or-local-file>" --out-dir <dir> --transcribe
 ```
 
-## Research + adoption workflow (the agent's job)
+## Research + vision + adoption workflow (the agent's job)
 
-For each Reel: read the manifest and transcript, inspect hook/CTA frames with
-vision, extract claimed tools/skills/plugins/projects, then:
+For each Reel, read the manifest, caption, and local transcript before using
+vision. Extract explicitly named tools/skills/plugins/projects and capability
+claims from those sources first. Vision is optional evidence, not a prerequisite
+for continuing the research.
 
-1. **Verify** — find the primary source (official repo/docs). Label each claim
+1. **Gate vision before calling it** — use vision only when a material
+   on-screen name, URL, UI detail, or visual claim remains unresolved after the
+   caption/transcript review.
+   - Configure a provider **and an explicit image-capable model**. Do not let a
+     vision route inherit an arbitrary chat/coding model.
+   - Start with exactly one representative hook or CTA frame, sequentially.
+     Never fan out frame analysis before this probe succeeds.
+   - If the probe succeeds, inspect only the additional named frames needed to
+     answer the question, in bounded batches.
+   - On the first `vision_analyze` non-success, HTTP 5xx, timeout, or
+     unavailable response: make **zero** more vision calls in that run. Record
+     `vision unavailable (<observed error>)`, continue with
+     transcript/caption/primary-source evidence, and label visual-only claims
+     `unresolved` rather than guessing.
+2. **Verify** — find the primary source (official repo/docs). Label each claim
    `verified / partly verified / unsupported / misleading / unresolved`.
-2. **Audit before any adoption** — shallow clone, read README/manifests, scan
+3. **Audit before any adoption** — shallow clone, read README/manifests, scan
    for: env/`.env` reads, network calls, subprocess, installers/postinstall
    hooks, cookie/session/OAuth handling, telemetry, external publishing.
-3. **Gate** — apply `references/safety-gate.md`:
+4. **Gate** — apply `references/safety-gate.md`:
    - Auto-adopt ONLY pure prompt/workflow skills (a `SKILL.md` with no scripts,
      no env, no network, no subprocess, no MCP/provider writes).
    - Everything else: *proposed* with the blocking reason; the human decides.
-4. **Record** — append dated findings (sources, verdicts, reasons) to a durable
+5. **Record** — append dated findings (sources, verdicts, reasons) to a durable
    research log. Never record credential values.
 
 ## Scheduling
@@ -140,6 +156,14 @@ The wizard prints a ready cron line and, for Hermes users, the cronjob recipe.
 - **Silent/music Reels**: `transcription_status: no_audio` — frames only.
 - **Final-frame decode**: CTA samples stop up to 1s before EOF on purpose.
 - **Deleted Reels**: items with no `video_url` are skipped with a warning.
+- **Vision error (`HTTP 5xx`, timeout, unavailable)**: this does not invalidate
+  local frames or Whisper. Stop vision after the first failed probe for that
+  run; continue from the caption, transcript, and primary sources. A later run
+  may start with one new probe after the route is corrected.
+- **Text-only route**: a provider's chat/coding endpoint can reject images even
+  when that provider offers a separate multimodal product. Pin the dedicated
+  vision provider and image-capable model. For example, do not send images to a
+  Kimi Coding endpoint merely because another Kimi API supports vision.
 
 ## Verification
 
@@ -148,3 +172,5 @@ The wizard prints a ready cron line and, for Hermes users, the cronjob recipe.
 - `collect_new_reels.py --dry-run` lists what would download; state unchanged.
 - Every Reel manifest lists frame paths + transcript state; files must exist.
 - A run is complete only when the analyzer prints `COMPLETE ... reels=N`.
+- A vision-enabled run begins with at most one sequential probe; after a failed
+  probe, its report contains the observed error and no later vision results.
