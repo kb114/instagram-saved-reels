@@ -55,8 +55,15 @@ python scripts/analyze_collection.py runs/<ts>/collection_manifest.json --out-di
 python scripts/reel_frames.py "<public-url-or-local-file>" --transcribe   # single video
 ```
 
-Then have your agent read the manifests/transcripts, verify claims against
-primary sources, and apply `references/safety-gate.md`:
+Then have your agent read captions/manifests/transcripts and verify claims
+against primary sources before calling vision. Vision is optional: when a
+material on-screen name or visual claim remains unresolved, start with one
+sequential hook/CTA-frame probe. Do not fan out vision calls before it succeeds;
+on its first `HTTP 5xx`, timeout, unavailable, or non-success response, stop
+vision for that run and continue with transcript/source evidence. Pin a dedicated
+image-capable provider **and model**—a text/coding endpoint may reject images
+even when the same provider has a separate multimodal API. Then apply
+`references/safety-gate.md`:
 
 - **Auto-adopt** only pure prompt/workflow skills (no scripts, env, network,
   subprocess, MCP/provider writes).
